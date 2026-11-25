@@ -19,6 +19,10 @@
   .co__bill{font-family:ui-monospace,Menlo,monospace;font-size:14.5px;line-height:1.55;white-space:pre-wrap;background:#fffdf5;border:2px dashed #c9b458;border-radius:18px;padding:22px;color:#222}
   .co__btn{display:block;text-align:center;margin-top:14px;padding:16px;border-radius:var(--tf-rob-okrogel);font-family:var(--tf-pisava-navigacija);text-transform:uppercase;letter-spacing:.07em;border:0;cursor:pointer;width:100%;font-size:16px}
   .co__btn--ig{background:linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf);color:#fff}
+  .co__btn--copy{background:#fff;color:var(--tf-temna);border:2px solid var(--tf-temna)}
+  .co__btn[disabled]{opacity:.45;cursor:not-allowed}
+  .co__status{margin-top:12px;font-weight:700;color:#7d9b22;min-height:22px}
+  .co input.is-missing{border-color:#d62976;background:#fff5f8}
   .co__btn--mail{background:var(--tf-roza);color:#fff}
   .co__btn--back{background:transparent;color:#fff;border:2px solid #fff}
   .co__note{opacity:.85;margin-top:14px;font-size:15px}
@@ -54,9 +58,11 @@
     </section>
     <section>
       <div class="co__bill" data-bill>Your cart is empty.</div>
+      <button class="co__btn co__btn--copy" type="button" data-copy-bill>Copy bill</button>
       <button class="co__btn co__btn--ig" type="button" data-send-ig>Send bill on Instagram</button>
-      <p class="co__note" data-ig-note style="color:#333">Instagram does not let a website pre-fill a DM, so your bill is copied for you — just paste it into the chat with @bestiesbuns.</p>
+      <p class="co__note" data-ig-note style="color:#333">Fill in all your details first — the send buttons unlock after that. Instagram does not let a website pre-fill a DM, so your bill is copied for you — just paste it into the chat with @bestiesbuns. If copy ever fails, tap Copy bill, or press and hold the bill above to copy it manually.</p>
       <button class="co__btn co__btn--mail" type="button" data-send-mail>Send bill by email</button>
+      <p class="co__status" data-status aria-live="polite"></p>
       <a class="co__btn co__btn--back" href="https://www.instagram.com/bestiesbuns" target="_blank" rel="noopener">Or order on Instagram</a>
     </section>
   </div>
@@ -96,16 +102,53 @@
     return lines.join('\n');
   }
   const billEl = document.querySelector('[data-bill]');
-  const refresh = () => billEl.textContent = entries.length ? bill() : 'Your cart is empty.';
+  const statusEl = document.querySelector('[data-status]');
+  const nameEl = document.getElementById('f-name');
+  const phoneEl = document.getElementById('f-phone');
+  const sendBtns = [document.querySelector('[data-send-ig]'), document.querySelector('[data-send-mail]'), document.querySelector('[data-copy-bill]')];
+  const detailsFilled = () => nameEl.value.trim().length > 1 && phoneEl.value.trim().length >= 7;
+  function validate(showMarks) {
+    const ok = detailsFilled() && entries.length > 0;
+    sendBtns.forEach(b => b.disabled = !ok);
+    if (showMarks) {
+      nameEl.classList.toggle('is-missing', nameEl.value.trim().length <= 1);
+      phoneEl.classList.toggle('is-missing', phoneEl.value.trim().length < 7);
+      if (!ok) statusEl.textContent = entries.length ? 'Please fill in your name and phone number to send.' : 'Your cart is empty.';
+    }
+    return ok;
+  }
+  const refresh = () => { billEl.textContent = entries.length ? bill() : 'Your cart is empty.'; validate(false); };
   document.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', refresh));
   refresh();
+  async function copyBill() {
+    const text = bill();
+    // Method 1 (first, synchronously inside the tap): hidden textarea + execCommand.
+    // This is the most reliable on mobile — it runs during the user gesture itself.
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+      const ok = document.execCommand('copy'); ta.remove(); if (ok) return true;
+    } catch {}
+    // Method 2: modern clipboard API (needs permission + page focus; blocked in some browsers/webviews)
+    try { await navigator.clipboard.writeText(text); return true; } catch {}
+    // Method 3: select the visible bill so the user can copy it with one long-press / Ctrl+C
+    const range = document.createRange(); range.selectNodeContents(billEl);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    return false;
+  }
+  document.querySelector('[data-copy-bill]').addEventListener('click', async () => {
+    if (!validate(true)) return;
+    statusEl.textContent = await copyBill() ? 'Bill copied — now paste it into the Instagram chat.' : 'Copy was blocked by the browser — the bill is selected above, press Copy / Ctrl+C.';
+  });
   document.querySelector('[data-send-ig]').addEventListener('click', async () => {
-    if (!entries.length) return alert('Your cart is empty.');
-    try { await navigator.clipboard.writeText(bill()); } catch {}
+    if (!validate(true)) return;
+    const copied = await copyBill();
+    statusEl.textContent = copied ? 'Bill copied — opening Instagram, just paste it in the chat.' : 'Copy was blocked by the browser — the bill is selected above, copy it, then paste it in Instagram.';
     window.open('https://ig.me/m/bestiesbuns', '_blank');
   });
   document.querySelector('[data-send-mail]').addEventListener('click', () => {
-    if (!entries.length) return alert('Your cart is empty.');
+    if (!validate(true)) return;
     location.href = 'mailto:bestiesbuns@gmail.com?subject=' + encodeURIComponent("Bestie's Buns order " + orderId) + '&body=' + encodeURIComponent(bill());
   });
 </script>
