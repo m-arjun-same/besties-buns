@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Checkout | Bestie's Buns</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  body{background:var(--tf-temna);color:#fff}
+  .co{width:min(100%,880px);margin:0 auto;padding:120px var(--tf-odmik-stran) 80px}
+  .co h1{font-family:var(--tf-pisava-navigacija);font-size:clamp(38px,5vw,68px);text-transform:uppercase}
+  .co h1 span{font-family:var(--tf-pisava-rocna);text-transform:none;font-weight:400;color:var(--tf-roza)}
+  .co__grid{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:34px}
+  @media(max-width:760px){.co__grid{grid-template-columns:1fr}}
+  .co__card{background:#fff;color:var(--tf-temna);border-radius:26px;padding:28px}
+  .co__card h2{font-family:var(--tf-pisava-navigacija);text-transform:uppercase;margin-bottom:16px}
+  .co label{display:block;font-weight:700;margin:14px 0 6px}
+  .co input,.co select,.co textarea{width:100%;border:2px solid #ddd;border-radius:14px;padding:12px 14px;font:inherit}
+  .co__bill{font-family:ui-monospace,Menlo,monospace;font-size:14.5px;line-height:1.55;white-space:pre-wrap;background:#fffdf5;border:2px dashed #c9b458;border-radius:18px;padding:22px;color:#222}
+  .co__btn{display:block;text-align:center;margin-top:14px;padding:16px;border-radius:var(--tf-rob-okrogel);font-family:var(--tf-pisava-navigacija);text-transform:uppercase;letter-spacing:.07em;border:0;cursor:pointer;width:100%;font-size:16px}
+  .co__btn--wa{background:#25d366;color:#04240f}
+  .co__btn--mail{background:var(--tf-roza);color:#fff}
+  .co__btn--back{background:transparent;color:#fff;border:2px solid #fff}
+  .co__note{opacity:.85;margin-top:14px;font-size:15px}
+  .co__item{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee}
+</style>
+</head>
+<body>
+<header class="tf-glava">
+  <div class="tf-glava__okvir">
+    <a class="tf-glava__znamka" href="index.html">Bestie's <span>Buns</span></a>
+    <a class="tf-glava__gumb" href="index.html">← Back to buns</a>
+  </div>
+</header>
+<main class="co">
+  <h1><span>Checkout</span> — your bill</h1>
+  <div class="co__grid">
+    <section class="co__card">
+      <h2>Your details</h2>
+      <div data-items></div>
+      <label for="f-name">Your name</label>
+      <input id="f-name" autocomplete="name" placeholder="e.g. Alex Smith">
+      <label for="f-phone">Phone</label>
+      <input id="f-phone" autocomplete="tel" placeholder="e.g. 555 123 4567">
+      <label for="f-day">Pickup day — Hazel Park porch pickup</label>
+      <select id="f-day">
+        <option>Wednesday — 10am to noon</option>
+        <option>Thursday — 10am to noon</option>
+        <option>Next bake sale / market day</option>
+      </select>
+      <label for="f-note">Note (optional)</label>
+      <textarea id="f-note" rows="2" placeholder="Anything the besties should know?"></textarea>
+      <p class="co__note">Bestie's Buns post no prices on Instagram — the bakery confirms your total when they confirm the order. Pre-pay on Venmo @Carrie-Laux once confirmed.</p>
+    </section>
+    <section>
+      <div class="co__bill" data-bill>Your cart is empty.</div>
+      <button class="co__btn co__btn--wa" type="button" data-send-wa>Send bill on WhatsApp</button>
+      <button class="co__btn co__btn--mail" type="button" data-send-mail>Send bill by email</button>
+      <a class="co__btn co__btn--back" href="https://www.instagram.com/bestiesbuns" target="_blank" rel="noopener">Or order on Instagram</a>
+    </section>
+  </div>
+</main>
+<script>
+  const KEY = 'bb_cart_v1';
+  let cart = {}; try { cart = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch {}
+  const orderId = 'BB' + String(Date.now()).slice(-8);
+  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const itemsEl = document.querySelector('[data-items]');
+  const entries = Object.entries(cart);
+  itemsEl.innerHTML = entries.length
+    ? entries.map(([n, i]) => `<div class="co__item"><span>${n} <small>(${i.section})</small></span><strong>× ${i.qty}</strong></div>`).join('')
+    : '<p>Your cart is empty — <a href="index.html">go pick some buns</a>.</p>';
+  function bill() {
+    const name = document.getElementById('f-name').value.trim() || '-';
+    const phone = document.getElementById('f-phone').value.trim() || '-';
+    const day = document.getElementById('f-day').value;
+    const note = document.getElementById('f-note').value.trim();
+    const total = entries.reduce((s, [, i]) => s + i.qty, 0);
+    const lines = [
+      "BESTIE'S BUNS",
+      'Handmade Cinnamon Buns - Michigan',
+      '--------------------------------',
+      'Order: ' + orderId,
+      'Date: ' + date,
+      '--------------------------------',
+      ...entries.map(([n, i], x) => `${x + 1}. ${n} x${i.qty}`),
+      '--------------------------------',
+      'Total items: ' + total,
+      'Name: ' + name,
+      'Phone: ' + phone,
+      'Pickup: Hazel Park - ' + day,
+    ];
+    if (note) lines.push('Note: ' + note);
+    lines.push('', 'Please confirm my order. Thank you, besties!');
+    return lines.join('\n');
+  }
+  const billEl = document.querySelector('[data-bill]');
+  const refresh = () => billEl.textContent = entries.length ? bill() : 'Your cart is empty.';
+  document.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', refresh));
+  refresh();
+  document.querySelector('[data-send-wa]').addEventListener('click', () => {
+    if (!entries.length) return alert('Your cart is empty.');
+    window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(bill()), '_blank');
+  });
+  document.querySelector('[data-send-mail]').addEventListener('click', () => {
+    if (!entries.length) return alert('Your cart is empty.');
+    location.href = 'mailto:bestiesbuns@gmail.com?subject=' + encodeURIComponent("Bestie's Buns order " + orderId) + '&body=' + encodeURIComponent(bill());
+  });
+</script>
+</body>
+</html>

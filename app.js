@@ -58,3 +58,57 @@ document.querySelectorAll('[data-slider]').forEach(sec => {
   sec.querySelector('[data-next]').addEventListener('click', () => go(i + 1));
   go(0);
 });
+
+// CART — one cart for all sections, stored in localStorage
+(() => {
+  const KEY = 'bb_cart_v1';
+  let cart = {}; try { cart = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch { cart = {}; }
+  const drawer = document.querySelector('[data-cart]'); if (!drawer) return;
+  const backdrop = document.querySelector('[data-cart-backdrop]');
+  const list = drawer.querySelector('[data-cart-list]');
+  const empty = drawer.querySelector('[data-cart-empty]');
+  const totalEl = drawer.querySelector('[data-cart-total]');
+  const countEl = document.querySelector('[data-cart-count]');
+  const openBtn = document.querySelector('[data-cart-open]');
+  const save = () => localStorage.setItem(KEY, JSON.stringify(cart));
+  const total = () => Object.values(cart).reduce((s, i) => s + i.qty, 0);
+  const clean = s => { const d = document.createElement('div'); d.innerHTML = s; return d.textContent; };
+  function render() {
+    countEl.textContent = total(); totalEl.textContent = total();
+    list.innerHTML = ''; empty.style.display = total() ? 'none' : 'block';
+    Object.entries(cart).forEach(([name, item]) => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span class="ime">${name}<small>${item.section}</small></span>
+        <button type="button" aria-label="Less">−</button><strong>${item.qty}</strong>
+        <button type="button" aria-label="More">+</button>
+        <button type="button" class="odstrani" aria-label="Remove">×</button>`;
+      const [less, more, del] = li.querySelectorAll('button');
+      less.onclick = () => { item.qty--; if (item.qty <= 0) delete cart[name]; save(); render(); };
+      more.onclick = () => { item.qty++; save(); render(); };
+      del.onclick = () => { delete cart[name]; save(); render(); };
+      list.appendChild(li);
+    });
+  }
+  const open = () => { drawer.hidden = false; backdrop.hidden = false; };
+  const close = () => { drawer.hidden = true; backdrop.hidden = true; };
+  openBtn.addEventListener('click', open);
+  drawer.querySelector('[data-cart-close]').addEventListener('click', close);
+  backdrop.addEventListener('click', close);
+  drawer.querySelector('[data-cart-clear]').addEventListener('click', () => { cart = {}; save(); render(); });
+  document.querySelectorAll('[data-slider]').forEach(sec => {
+    const qtyEl = sec.querySelector('[data-qty]'); let qty = 1;
+    sec.querySelector('[data-qty-minus]').addEventListener('click', () => { qty = Math.max(1, qty - 1); qtyEl.textContent = qty; });
+    sec.querySelector('[data-qty-plus]').addEventListener('click', () => { qty = Math.min(99, qty + 1); qtyEl.textContent = qty; });
+    sec.addEventListener('click', e => { if (e.target.closest('[data-prev],[data-next],.tf-produkt__izbirnik')) setTimeout(() => { qty = 1; qtyEl.textContent = 1; }, 60); });
+    const addBtn = sec.querySelector('[data-add]');
+    addBtn.addEventListener('click', () => {
+      const name = clean(sec.querySelector('[data-current]').innerHTML);
+      const section = clean(sec.querySelector('.tf-produkt__naslov').textContent).replace(/\s+/g, ' ').trim();
+      if (!cart[name]) cart[name] = { qty: 0, section };
+      cart[name].qty += qty; save(); render();
+      openBtn.classList.remove('is-utripa'); void openBtn.offsetWidth; openBtn.classList.add('is-utripa');
+      const old = addBtn.textContent; addBtn.textContent = 'Added ✓'; setTimeout(() => addBtn.textContent = old, 1200);
+    });
+  });
+  render();
+})();
