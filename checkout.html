@@ -59,8 +59,9 @@
     <section>
       <div class="co__bill" data-bill>Your cart is empty.</div>
       <button class="co__btn co__btn--ig" type="button" data-send-ig>Send bill image on Instagram</button>
-      <p class="co__note" style="color:#333">Fill in all your details first — the send button unlocks after that. Instagram can't take bill text from a website, so this makes your bill into a picture and shares that picture into Instagram instead.</p>
+      <p class="co__note" style="color:#333">Fill in all your details first — the send button unlocks after that. Instagram can't take bill text or pictures directly from a website — no site can open an Instagram chat with a picture already attached. So this makes your bill into a picture, tries your phone's share sheet first, and if Instagram doesn't open there, saves the picture and gives you a button that opens the @bestiesbuns chat to attach it.</p>
       <img class="co__billimg" data-bill-img alt="Your bill as a picture" hidden>
+      <a class="co__btn co__btn--ig" data-open-dm href="https://ig.me/m/bestiesbuns" target="_blank" rel="noopener" hidden>Open Instagram chat with @bestiesbuns — attach the picture above</a>
       <button class="co__btn co__btn--mail" type="button" data-send-mail>Send bill by email</button>
       <p class="co__status" data-status aria-live="polite"></p>
       <a class="co__btn co__btn--back" href="https://www.instagram.com/bestiesbuns" target="_blank" rel="noopener">Or order on Instagram</a>
@@ -156,16 +157,19 @@
     const file = new File([blob], 'besties-buns-bill-' + orderId + '.png', { type: 'image/png' });
     const imgEl = document.querySelector('[data-bill-img]');
     imgEl.src = URL.createObjectURL(blob); imgEl.hidden = false;
+    const dmBtn = document.querySelector('[data-open-dm]');
+    dmBtn.hidden = false;
+    const fallback = () => {
+      const a = document.createElement('a'); a.href = imgEl.src; a.download = file.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      statusEl.textContent = 'Bill picture saved (shown above). Now tap the button below — it opens your Instagram chat with @bestiesbuns, attach the saved picture there and send.';
+    };
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      statusEl.textContent = 'Bill picture ready — choose Instagram in the share sheet and send it to @bestiesbuns.';
-      try { await navigator.share({ files: [file], title: "Bestie's Buns order " + orderId }); } catch {}
-      return;
+      statusEl.textContent = 'Bill picture ready — choose Instagram in the share sheet and send it to @bestiesbuns. If Instagram does not open, use the button below instead.';
+      try { await navigator.share({ files: [file], title: "Bestie's Buns order " + orderId }); return; }
+      catch (e) { if (e && e.name === 'AbortError') { statusEl.textContent = 'Share sheet closed — your bill picture is above. Tap the button below to open the @bestiesbuns chat and attach it.'; return; } fallback(); return; }
     }
-    // No file sharing (desktop / some browsers): download the picture, open the DM.
-    const a = document.createElement('a'); a.href = imgEl.src; a.download = file.name;
-    document.body.appendChild(a); a.click(); a.remove();
-    statusEl.textContent = 'Bill picture saved (shown above) — opening your @bestiesbuns chat, attach the picture there and send.';
-    window.open('https://ig.me/m/bestiesbuns', '_blank');
+    fallback();
   });
   document.querySelector('[data-send-mail]').addEventListener('click', () => {
     if (!validate(true)) return;
