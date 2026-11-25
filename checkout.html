@@ -118,8 +118,8 @@
   const refresh = () => { billEl.textContent = entries.length ? bill() : 'Your cart is empty.'; validate(false); };
   document.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', refresh));
   refresh();
-  // Instagram has no pre-fill link like WhatsApp's wa.me ?text= — a website cannot put text
-  // inside an Instagram DM. Closest real flow, in order, all inside the tap itself:
+  // Instagram gives websites no pre-fill link for DMs — no site can put text inside
+  // an Instagram chat directly. Closest real flow, in order, all inside the tap itself:
   // 1) copy the bill synchronously during the tap (execCommand in the user gesture),
   // 2) open the @bestiesbuns DM (ig.me) — user pastes once and sends.
   // If copy is blocked: 3) system share sheet carrying the bill text straight into Instagram.
