@@ -26,6 +26,7 @@
   .co__btn--back{background:transparent;color:#fff;border:2px solid #fff}
   .co__note{opacity:.85;margin-top:14px;font-size:15px}
   .co__item{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #eee}
+  .co__billimg{width:100%;border-radius:18px;margin-top:14px;border:2px solid rgba(255,255,255,.5)}
 </style>
 </head>
 <body>
@@ -57,8 +58,9 @@
     </section>
     <section>
       <div class="co__bill" data-bill>Your cart is empty.</div>
-      <button class="co__btn co__btn--ig" type="button" data-send-ig>Send bill on Instagram</button>
-      <p class="co__note" style="color:#333">Fill in all your details first — the send button unlocks after that. It opens your chat with @bestiesbuns on Instagram with the full bill ready to send.</p>
+      <button class="co__btn co__btn--ig" type="button" data-send-ig>Send bill image on Instagram</button>
+      <p class="co__note" style="color:#333">Fill in all your details first — the send button unlocks after that. Instagram can't take bill text from a website, so this makes your bill into a picture and shares that picture into Instagram instead.</p>
+      <img class="co__billimg" data-bill-img alt="Your bill as a picture" hidden>
       <button class="co__btn co__btn--mail" type="button" data-send-mail>Send bill by email</button>
       <p class="co__status" data-status aria-live="polite"></p>
       <a class="co__btn co__btn--back" href="https://www.instagram.com/bestiesbuns" target="_blank" rel="noopener">Or order on Instagram</a>
@@ -118,36 +120,52 @@
   const refresh = () => { billEl.textContent = entries.length ? bill() : 'Your cart is empty.'; validate(false); };
   document.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', refresh));
   refresh();
-  // Instagram gives websites no pre-fill link for DMs — no site can put text inside
-  // an Instagram chat directly. Closest real flow, in order, all inside the tap itself:
-  // 1) copy the bill synchronously during the tap (execCommand in the user gesture),
-  // 2) open the @bestiesbuns DM (ig.me) — user pastes once and sends.
-  // If copy is blocked: 3) system share sheet carrying the bill text straight into Instagram.
-  // If that is missing too: 4) select the bill on the page for one long-press copy.
+  // Instagram gives websites no pre-fill link for DMs — text cannot go into an
+  // Instagram chat from a site (unlike WhatsApp / email). So for Instagram the
+  // bill is rendered as a PICTURE (canvas PNG) and shared as an image file,
+  // which Instagram does accept. Email stays as-is (mailto with full bill text).
+  function billImageBlob() {
+    return new Promise(resolve => {
+      const raw = bill().split('\n');
+      const lines = [];
+      raw.forEach(l => { // wrap long lines (notes) at 40 chars
+        while (l.length > 40) { let cut = l.lastIndexOf(' ', 40); if (cut < 10) cut = 40; lines.push(l.slice(0, cut)); l = l.slice(cut).trim(); }
+        lines.push(l);
+      });
+      const W = 1080, pad = 64, lh = 46, titleH = 30;
+      const H = pad * 2 + titleH + lines.length * lh;
+      const c = document.createElement('canvas'); c.width = W; c.height = H;
+      const x = c.getContext('2d');
+      x.fillStyle = '#fffdf5'; x.fillRect(0, 0, W, H);
+      x.strokeStyle = '#c9b458'; x.lineWidth = 6; x.setLineDash([18, 12]);
+      x.strokeRect(24, 24, W - 48, H - 48); x.setLineDash([]);
+      x.fillStyle = '#222'; x.textBaseline = 'top';
+      let y = pad;
+      lines.forEach((l, i) => {
+        if (i === 0) { x.font = '700 54px "Josefin Sans", Arial, sans-serif'; x.fillText(l, pad, y); y += lh + titleH; }
+        else { x.font = '34px ui-monospace, Menlo, monospace'; x.fillText(l, pad, y); y += lh; }
+      });
+      c.toBlob(b => resolve(b), 'image/png');
+    });
+  }
   document.querySelector('[data-send-ig]').addEventListener('click', async () => {
     if (!validate(true)) return;
-    const text = bill();
-    let copied = false;
-    try {
-      const ta = document.createElement('textarea');
-      ta.value = text; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
-      document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
-      copied = document.execCommand('copy'); ta.remove();
-    } catch {}
-    if (!copied) { try { await navigator.clipboard.writeText(text); copied = true; } catch {} }
-    if (copied) {
-      statusEl.textContent = 'Bill copied — opening your Instagram chat with @bestiesbuns, paste and send.';
-      window.open('https://ig.me/m/bestiesbuns', '_blank');
+    statusEl.textContent = 'Making your bill picture…';
+    const blob = await billImageBlob();
+    if (!blob) { statusEl.textContent = 'Could not make the bill picture on this browser — please use email instead.'; return; }
+    const file = new File([blob], 'besties-buns-bill-' + orderId + '.png', { type: 'image/png' });
+    const imgEl = document.querySelector('[data-bill-img]');
+    imgEl.src = URL.createObjectURL(blob); imgEl.hidden = false;
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      statusEl.textContent = 'Bill picture ready — choose Instagram in the share sheet and send it to @bestiesbuns.';
+      try { await navigator.share({ files: [file], title: "Bestie's Buns order " + orderId }); } catch {}
       return;
     }
-    if (navigator.share) {
-      statusEl.textContent = 'Copy was blocked — opening the share sheet, choose Instagram to send the bill.';
-      try { await navigator.share({ text }); } catch {}
-      return;
-    }
-    const range = document.createRange(); range.selectNodeContents(billEl);
-    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
-    statusEl.textContent = 'Copy was blocked by the browser — the bill is selected above, copy it, then open Instagram.';
+    // No file sharing (desktop / some browsers): download the picture, open the DM.
+    const a = document.createElement('a'); a.href = imgEl.src; a.download = file.name;
+    document.body.appendChild(a); a.click(); a.remove();
+    statusEl.textContent = 'Bill picture saved (shown above) — opening your @bestiesbuns chat, attach the picture there and send.';
+    window.open('https://ig.me/m/bestiesbuns', '_blank');
   });
   document.querySelector('[data-send-mail]').addEventListener('click', () => {
     if (!validate(true)) return;
