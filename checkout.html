@@ -18,7 +18,7 @@
   .co input,.co select,.co textarea{width:100%;border:2px solid #ddd;border-radius:14px;padding:12px 14px;font:inherit}
   .co__bill{font-family:ui-monospace,Menlo,monospace;font-size:14.5px;line-height:1.55;white-space:pre-wrap;background:#fffdf5;border:2px dashed #c9b458;border-radius:18px;padding:22px;color:#222}
   .co__btn{display:block;text-align:center;margin-top:14px;padding:16px;border-radius:var(--tf-rob-okrogel);font-family:var(--tf-pisava-navigacija);text-transform:uppercase;letter-spacing:.07em;border:0;cursor:pointer;width:100%;font-size:16px}
-  .co__btn--wa{background:#25d366;color:#04240f}
+  .co__btn--ig{background:linear-gradient(45deg,#feda75,#fa7e1e,#d62976,#962fbf);color:#fff}
   .co__btn--mail{background:var(--tf-roza);color:#fff}
   .co__btn--back{background:transparent;color:#fff;border:2px solid #fff}
   .co__note{opacity:.85;margin-top:14px;font-size:15px}
@@ -54,7 +54,8 @@
     </section>
     <section>
       <div class="co__bill" data-bill>Your cart is empty.</div>
-      <button class="co__btn co__btn--wa" type="button" data-send-wa>Send bill on WhatsApp</button>
+      <button class="co__btn co__btn--ig" type="button" data-send-ig>Send bill on Instagram</button>
+      <p class="co__note" data-ig-note style="color:#333">Instagram does not let a website pre-fill a DM, so your bill is copied for you — just paste it into the chat with @bestiesbuns.</p>
       <button class="co__btn co__btn--mail" type="button" data-send-mail>Send bill by email</button>
       <a class="co__btn co__btn--back" href="https://www.instagram.com/bestiesbuns" target="_blank" rel="noopener">Or order on Instagram</a>
     </section>
@@ -98,9 +99,10 @@
   const refresh = () => billEl.textContent = entries.length ? bill() : 'Your cart is empty.';
   document.querySelectorAll('input,select,textarea').forEach(el => el.addEventListener('input', refresh));
   refresh();
-  document.querySelector('[data-send-wa]').addEventListener('click', () => {
+  document.querySelector('[data-send-ig]').addEventListener('click', async () => {
     if (!entries.length) return alert('Your cart is empty.');
-    window.open('https://api.whatsapp.com/send?text=' + encodeURIComponent(bill()), '_blank');
+    try { await navigator.clipboard.writeText(bill()); } catch {}
+    window.open('https://ig.me/m/bestiesbuns', '_blank');
   });
   document.querySelector('[data-send-mail]').addEventListener('click', () => {
     if (!entries.length) return alert('Your cart is empty.');
